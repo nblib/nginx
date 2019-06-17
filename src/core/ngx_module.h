@@ -218,33 +218,41 @@
 
 #define NGX_MODULE_V1_PADDING  0, 0, 0, 0, 0, 0, 0, 0
 
-
+/**
+ * 用于管理每一个模块的详细信息
+ */
 struct ngx_module_s {
     ngx_uint_t            ctx_index;
-    ngx_uint_t            index;
+    ngx_uint_t            index; // 模块的编号,用于在模块数组中确定位置,也就是在模块数组中的下标:modules[index]
 
-    char                 *name;
+    char                 *name; // 模块名称
 
     ngx_uint_t            spare0;
     ngx_uint_t            spare1;
 
-    ngx_uint_t            version;
+    ngx_uint_t            version;  // 模块版本
     const char           *signature;
 
+    /**
+     * 模块上下文. 主要放置一个模块自定义的结构。例如核心模块就是ngx_core_module_t的结构。ngx_core_module_t中可以自定义一些方法或者参数。
+     */
     void                 *ctx;
+    /**
+     * 模块支持的命令集. Nginx的配置文件都是通过commands命令集来逐个解析具体定义好的配置信息（每个模块不一样）
+     */
     ngx_command_t        *commands;
-    ngx_uint_t            type;
+    ngx_uint_t            type; // 模块类型
 
-    ngx_int_t           (*init_master)(ngx_log_t *log);
+    ngx_int_t           (*init_master)(ngx_log_t *log); // 主进程初始化的时候调用
 
-    ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
+    ngx_int_t           (*init_module)(ngx_cycle_t *cycle); // 模块初始化的时候调用
 
-    ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
-    ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
-    void                (*exit_thread)(ngx_cycle_t *cycle);
-    void                (*exit_process)(ngx_cycle_t *cycle);
+    ngx_int_t           (*init_process)(ngx_cycle_t *cycle);    // 工作进程初始化时调用
+    ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);     // 线程初始化调用
+    void                (*exit_thread)(ngx_cycle_t *cycle);     // 线程退出调用
+    void                (*exit_process)(ngx_cycle_t *cycle);    // 工作进程退出调用
 
-    void                (*exit_master)(ngx_cycle_t *cycle);
+    void                (*exit_master)(ngx_cycle_t *cycle); // 主进程退出时调用
 
     uintptr_t             spare_hook0;
     uintptr_t             spare_hook1;
@@ -273,8 +281,13 @@ ngx_int_t ngx_count_modules(ngx_cycle_t *cycle, ngx_uint_t type);
 ngx_int_t ngx_add_module(ngx_conf_t *cf, ngx_str_t *file,
     ngx_module_t *module, char **order);
 
-
+/**
+ * 模块数组,具体模块在编译时,通过configuration指定,然后生成objs/ngx_modules.c文件,里面包含了需要的模块
+ */
 extern ngx_module_t  *ngx_modules[];
+/**
+ * 最大模块数量= 模块数组的长度 + 128
+ */
 extern ngx_uint_t     ngx_max_module;
 
 extern char          *ngx_module_names[];

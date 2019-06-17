@@ -153,7 +153,12 @@ ngx_conf_add_dump(ngx_conf_t *cf, ngx_str_t *filename)
     return NGX_OK;
 }
 
-
+/**
+ * 读取解析命令行参数或配置文件内容
+ * @param cf
+ * @param filename
+ * @return
+ */
 char *
 ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
 {
@@ -352,6 +357,12 @@ done:
 }
 
 
+/**
+ * 调用模块的命令处理配置属性
+ * @param cf
+ * @param last
+ * @return
+ */
 static ngx_int_t
 ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
 {
@@ -499,6 +510,37 @@ invalid:
 }
 
 
+/**
+ * 读取配置信息
+ * 把每次分析的值放到cf->args这个数组里面	碰到{} ; 返回
+ * 例如配置文件如下：
+ * user  nfsnobody nfsnobody;
+ * worker_processes 8;
+ * error_log  /usr/local/nginx-1.4.7/nginx_error.log  crit;
+ * pid        /usr/local/nginx-1.4.7/nginx.pid;
+ * #Specifies the value for maximum file descriptors that can be opened by this process.
+ * worker_rlimit_nofile 65535;
+ * events
+ * {
+ * use epoll;
+ * worker_connections 65535;}
+ *
+ * 分解成逐个单词：
+ * user
+ * nfsnobody
+ * nfsnobody
+ * worker_processes
+ * 8
+ * error_log
+ * /usr/local/nginx-1.4.7/nginx_error.log
+ * crit
+ * pid
+ * /usr/local/nginx-1.4.7/nginx.pid
+ * worker_rlimit_nofile
+ * 65535
+ * events
+ *
+ */
 static ngx_int_t
 ngx_conf_read_token(ngx_conf_t *cf)
 {

@@ -19,9 +19,16 @@ static ngx_uint_t ngx_module_ctx_index(ngx_cycle_t *cycle, ngx_uint_t type,
 
 
 ngx_uint_t         ngx_max_module;
-static ngx_uint_t  ngx_modules_n;
+static ngx_uint_t  ngx_modules_n; //模块数量
 
 
+/**
+ * 模块预处理:
+ *  1. 对模块数组中的模块进行设置index和name
+ *  2. 保存模块的数量到ngx_modules_n
+ *  3. 设置最大module = ngx_modules_n + NGX_MAX_DYNAMIC_MODULES
+ * @return 是否OK
+ */
 ngx_int_t
 ngx_preinit_modules(void)
 {
@@ -38,7 +45,11 @@ ngx_preinit_modules(void)
     return NGX_OK;
 }
 
-
+/**
+ *  将mokdules数组内容和长度复制到cycle中
+ * @param cycle
+ * @return
+ */
 ngx_int_t
 ngx_cycle_modules(ngx_cycle_t *cycle)
 {
@@ -61,7 +72,11 @@ ngx_cycle_modules(ngx_cycle_t *cycle)
     return NGX_OK;
 }
 
-
+/**
+ * 调用模块初始化函数,
+ * @param cycle
+ * @return
+ */
 ngx_int_t
 ngx_init_modules(ngx_cycle_t *cycle)
 {
@@ -79,6 +94,12 @@ ngx_init_modules(ngx_cycle_t *cycle)
 }
 
 
+/**
+ * 获取指定类型的模块数量
+ * @param cycle
+ * @param type
+ * @return
+ */
 ngx_int_t
 ngx_count_modules(ngx_cycle_t *cycle, ngx_uint_t type)
 {

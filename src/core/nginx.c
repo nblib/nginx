@@ -37,7 +37,9 @@ static ngx_conf_enum_t  ngx_debug_points[] = {
     { ngx_null_string, 0 }
 };
 
-
+/**
+ * 核心模块配置命令集数组
+ */
 static ngx_command_t  ngx_core_commands[] = {
 
     { ngx_string("daemon"),
@@ -283,7 +285,7 @@ main(int argc, char *const *argv)
     if (ngx_add_inherited_sockets(&init_cycle) != NGX_OK) {
         return 1;
     }
-
+    // 模块预处理
     if (ngx_preinit_modules() != NGX_OK) {
         return 1;
     }
@@ -1004,6 +1006,11 @@ ngx_process_options(ngx_cycle_t *cycle)
 }
 
 
+/**
+ * 新建一个core_conf_t,字段赋值为默认值
+ * @param cycle
+ * @return
+ */
 static void *
 ngx_core_module_create_conf(ngx_cycle_t *cycle)
 {
