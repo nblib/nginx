@@ -495,6 +495,11 @@ ngx_event_init_conf(ngx_cycle_t *cycle, void *conf)
 }
 
 
+/**
+ * event事件核心模块初始化函数
+ * @param cycle
+ * @return
+ */
 static ngx_int_t
 ngx_event_module_init(ngx_cycle_t *cycle)
 {
@@ -639,6 +644,10 @@ ngx_timer_signal_handler(int signo)
 #endif
 
 
+
+/**
+ * Event模块的进程初始化
+*/
 static ngx_int_t
 ngx_event_process_init(ngx_cycle_t *cycle)
 {
@@ -650,9 +659,11 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ngx_event_conf_t    *ecf;
     ngx_event_module_t  *module;
 
+    // 获取配置信息
     ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
     ecf = ngx_event_get_conf(cycle->conf_ctx, ngx_event_core_module);
 
+    // 多进程并且工作进程数量大于1,并且开启accept_mutex的情况下才会开启进程锁
     if (ccf->master && ccf->worker_processes > 1 && ecf->accept_mutex) {
         ngx_use_accept_mutex = 1;
         ngx_accept_mutex_held = 0;
@@ -673,13 +684,16 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
+    // 初始化全局队列：ngx_posted_accept_events和ngx_posted_events
     ngx_queue_init(&ngx_posted_accept_events);
     ngx_queue_init(&ngx_posted_events);
 
+    // 初始化event模块的时间,使用rbtree(红黑树)
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
 
+    //找到事件模型的模块，例如epoll/kqueue
     for (m = 0; cycle->modules[m]; m++) {
         if (cycle->modules[m]->type != NGX_EVENT_MODULE) {
             continue;
@@ -691,6 +705,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
         module = cycle->modules[m]->ctx;
 
+        // 调用epoll/kqueue等模型模块的init初始化函数
         if (module->actions.init(cycle, ngx_timer_resolution) != NGX_OK) {
             /* fatal */
             exit(2);
@@ -1325,6 +1340,12 @@ ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
 
 #endif
 
+
+    /**
+     * 查询使用的事件模型:epoll、kqueue等
+     * 因为在模块初始化的时候，epoll\kqueue等event的模型模块都会被初始化
+     * 但是每个服务器只能选择一种相应的事件模型，所以选择一个适合自己的模块
+     */
     if (module == NULL) {
         for (i = 0; cycle->modules[i]; i++) {
 
@@ -1352,6 +1373,11 @@ ngx_event_core_init_conf(ngx_cycle_t *cycle, void *conf)
     ngx_conf_init_uint_value(ecf->connections, DEFAULT_CONNECTIONS);
     cycle->connection_n = ecf->connections;
 
+    /**
+     * 存储使用的事件模型模块索引 例如：epoll、kqueue
+     * nginx.conf中存储的是：use epoll;
+     * 这里会找到cycle->modules的具体模块的索引值，存储最终的索引值
+     */
     ngx_conf_init_uint_value(ecf->use, module->ctx_index);
 
     event_module = module->ctx;
