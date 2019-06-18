@@ -327,6 +327,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
             return NGX_OK;
         }
 
+        // 启动accept事件,添加到队列中
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
@@ -342,6 +343,7 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
                    "accept mutex lock failed: %ui", ngx_accept_mutex_held);
 
     if (ngx_accept_mutex_held) {
+        // 清除队列
         if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
             return NGX_ERROR;
         }
