@@ -381,6 +381,7 @@ main(int argc, char *const *argv)
         ngx_single_process_cycle(cycle);
 
     } else {
+        //开启多进程模式,主进程进行信号监听和开启子进程
         ngx_master_process_cycle(cycle);
     }
 
