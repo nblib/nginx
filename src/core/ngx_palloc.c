@@ -15,6 +15,12 @@ static void *ngx_palloc_block(ngx_pool_t *pool, size_t size);
 static void *ngx_palloc_large(ngx_pool_t *pool, size_t size);
 
 
+/**
+ * 创建内存池,池大小为size,池中数据大小为size-sizeof(ngx_pool_t)
+ * @param size
+ * @param log
+ * @return
+ */
 ngx_pool_t *
 ngx_create_pool(size_t size, ngx_log_t *log)
 {
@@ -31,6 +37,7 @@ ngx_create_pool(size_t size, ngx_log_t *log)
     p->d.failed = 0;
 
     size = size - sizeof(ngx_pool_t);
+    // 池中最大变量大小小于内存页大小或者小于size大小
     p->max = (size < NGX_MAX_ALLOC_FROM_POOL) ? size : NGX_MAX_ALLOC_FROM_POOL;
 
     p->current = p;
@@ -119,6 +126,13 @@ ngx_reset_pool(ngx_pool_t *pool)
 }
 
 
+/**
+ * 分配内存,如果大小小于pool的max从pool上划分一块
+ * 如果大于max,新向系统申请一块内存,然后链接到pool的large链表上
+ * @param pool
+ * @param size
+ * @return
+ */
 void *
 ngx_palloc(ngx_pool_t *pool, size_t size)
 {

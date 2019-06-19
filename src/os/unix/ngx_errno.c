@@ -42,6 +42,10 @@ ngx_strerror(ngx_err_t err, u_char *errstr, size_t size)
 }
 
 
+/**
+ * 将系统预定义的错误复制到自定义的错误列表中
+ * @return
+ */
 ngx_int_t
 ngx_strerror_init(void)
 {

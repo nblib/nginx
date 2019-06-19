@@ -205,14 +205,17 @@ main(int argc, char *const *argv)
 
     ngx_debug_init();
 
+    // 初始化错误列表
     if (ngx_strerror_init() != NGX_OK) {
         return 1;
     }
 
+    // 获取命令行参数
     if (ngx_get_options(argc, argv) != NGX_OK) {
         return 1;
     }
 
+    //是否显示版本信息
     if (ngx_show_version) {
         ngx_show_version_info();
 
@@ -223,12 +226,14 @@ main(int argc, char *const *argv)
 
     /* TODO */ ngx_max_sockets = -1;
 
+    //初始化缓存时间为当前时间
     ngx_time_init();
 
 #if (NGX_PCRE)
     ngx_regex_init();
 #endif
 
+    // 获取进程id
     ngx_pid = ngx_getpid();
     ngx_parent = ngx_getppid();
 
@@ -251,19 +256,23 @@ main(int argc, char *const *argv)
     init_cycle.log = log;
     ngx_cycle = &init_cycle;
 
+    // 初始化内存池
     init_cycle.pool = ngx_create_pool(1024, log);
     if (init_cycle.pool == NULL) {
         return 1;
     }
 
+    // 保村命令行参数
     if (ngx_save_argv(&init_cycle, argc, argv) != NGX_OK) {
         return 1;
     }
 
+    // 设置运行路径
     if (ngx_process_options(&init_cycle) != NGX_OK) {
         return 1;
     }
 
+    // 初始化系统,比如获取cpu数量,pagesize等
     if (ngx_os_init(log) != NGX_OK) {
         return 1;
     }
@@ -290,6 +299,7 @@ main(int argc, char *const *argv)
         return 1;
     }
 
+    // 初始化全局变量
     cycle = ngx_init_cycle(&init_cycle);
     if (cycle == NULL) {
         if (ngx_test_config) {
@@ -326,6 +336,7 @@ main(int argc, char *const *argv)
         return 0;
     }
 
+    // 如果收到信号,处理
     if (ngx_signal) {
         return ngx_signal_process(cycle, ngx_signal);
     }
@@ -467,6 +478,7 @@ ngx_add_inherited_sockets(ngx_cycle_t *cycle)
     ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0,
                   "using inherited sockets from \"%s\"", inherited);
 
+    //初始化监听socket存放的数据,初始大小为10 * sizeof(ngx_listening_t)
     if (ngx_array_init(&cycle->listening, cycle->pool, 10,
                        sizeof(ngx_listening_t))
         != NGX_OK)
@@ -741,6 +753,12 @@ ngx_exec_new_binary(ngx_cycle_t *cycle, char *const *argv)
 }
 
 
+/**
+ * 解析命令行参数
+ * @param argc 数量
+ * @param argv 参数数组
+ * @return
+ */
 static ngx_int_t
 ngx_get_options(int argc, char *const *argv)
 {
@@ -869,6 +887,13 @@ ngx_get_options(int argc, char *const *argv)
 }
 
 
+/**
+ * 申请内存,将命令行参数放到新申请的内存中.存到 ngx_process.h定义的ngx_argv变量中
+ * @param cycle
+ * @param argc
+ * @param argv
+ * @return
+ */
 static ngx_int_t
 ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 {
@@ -911,6 +936,11 @@ ngx_save_argv(ngx_cycle_t *cycle, int argc, char *const *argv)
 }
 
 
+/**
+ * 设置运行路径,配置文件的路径前缀,如果没有指定运行路径,则使用当前路径.
+ * @param cycle
+ * @return
+ */
 static ngx_int_t
 ngx_process_options(ngx_cycle_t *cycle)
 {

@@ -77,6 +77,9 @@ ngx_time_init(void)
 }
 
 
+/**
+ * 更新时间缓存数组中的事件,并赋值给缓存事件字符串
+ */
 void
 ngx_time_update(void)
 {
@@ -96,8 +99,10 @@ ngx_time_update(void)
     sec = tv.tv_sec;
     msec = tv.tv_usec / 1000;
 
+    //当前时间的毫秒数
     ngx_current_msec = ngx_monotonic_time(sec, msec);
 
+    //slot 从零开始最大NGX_TIME_SLOTS - 1
     tp = &cached_time[slot];
 
     if (tp->sec == sec) {
@@ -112,14 +117,17 @@ ngx_time_update(void)
         slot++;
     }
 
+    //设置缓存时间
     tp = &cached_time[slot];
 
     tp->sec = sec;
     tp->msec = msec;
 
+    // 当前sec 转为时间格式:年月天时分秒赋值到gmt上
     ngx_gmtime(sec, &gmt);
 
 
+    //设置缓存的http time
     p0 = &cached_http_time[slot][0];
 
     (void) ngx_sprintf(p0, "%s, %02d %s %4d %02d:%02d:%02d GMT",
@@ -192,6 +200,12 @@ ngx_time_update(void)
 }
 
 
+/**
+ * 秒转为毫秒,与剩余的毫秒相加
+ * @param sec
+ * @param msec
+ * @return
+ */
 static ngx_msec_t
 ngx_monotonic_time(time_t sec, ngx_uint_t msec)
 {

@@ -382,28 +382,35 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
     ngx_http_connection_t     *hc;
     ngx_http_core_srv_conf_t  *cscf;
 
+    // 从rev中获取连接 ngx_connection_t 对象
     c = rev->data;
 
     ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "http wait request handler");
 
+    // 客户端超时
     if (rev->timedout) {
         ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT, "client timed out");
         ngx_http_close_connection(c);
         return;
     }
 
+    // 客户端连接关闭
     if (c->close) {
         ngx_http_close_connection(c);
         return;
     }
 
     hc = c->data;
+    //  获取sev的conf配置 ngx_http_core_srv_conf_t
     cscf = ngx_http_get_module_srv_conf(hc->conf_ctx, ngx_http_core_module);
 
+    // 每次读取数据的buf大小
     size = cscf->client_header_buffer_size;
 
+    // ngx_connection_s 中的buffer：用于接收和缓存客户端发来的字符流
     b = c->buffer;
 
+    // 如果buffer为null了，则直接创建一个临时buf ngx_create_temp_buf
     if (b == NULL) {
         b = ngx_create_temp_buf(c->pool, size);
         if (b == NULL) {
@@ -428,6 +435,8 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
 
     n = c->recv(c, b->last, size);
 
+    // 这个是一个Http连接第一次等待读取数据，如果第一次接收的数据为空，则表示当前客户端连接上来了，但是数据还未上来，
+    // 则将当前连接上的读事件添加到定时器机制中，同时将读事件注册到epoll 事件机制中，return 从当前函数返回
     if (n == NGX_AGAIN) {
 
         if (!rev->timer_set) {
@@ -435,6 +444,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
             ngx_reusable_connection(c, 1);
         }
 
+        // 重新把读事件注册到事件中，每次epoll_wait后，fd的事件类型将会清空，需要再次注册读写事件
         if (ngx_handle_read_event(rev, 0) != NGX_OK) {
             ngx_http_close_connection(c);
             return;
@@ -442,6 +452,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
 
         /*
          * We are trying to not hold c->buffer's memory for an idle connection.
+         * 因为啥也不做，暂时现将buf清空
          */
 
         if (ngx_pfree(c->pool, b->start) == NGX_OK) {
@@ -462,7 +473,7 @@ ngx_http_wait_request_handler(ngx_event_t *rev)
         ngx_http_close_connection(c);
         return;
     }
-
+    //  真正读取到数据后的处理
     b->last += n;
 
     if (hc->proxy_protocol) {
@@ -1034,6 +1045,10 @@ failed:
 #endif
 
 
+/**
+ * read事件的时候，读取和处理HTTP头部的行
+ * @param rev
+ */
 static void
 ngx_http_process_request_line(ngx_event_t *rev)
 {
