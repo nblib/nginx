@@ -116,6 +116,13 @@ ngx_module_t  ngx_http_module = {
 };
 
 
+/**
+ * 加载解析http模块
+ * @param cf
+ * @param cmd
+ * @param conf
+ * @return
+ */
 static char *
 ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -139,16 +146,17 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
+    // http 核心配置上下文添加到全局配置中
     *(ngx_http_conf_ctx_t **) conf = ctx;
 
 
     /* count the number of the http modules and set up their indices */
-
+    //获取 NGX_HTTP_MODULE 类型的模块数量
     ngx_http_max_module = ngx_count_modules(cf->cycle, NGX_HTTP_MODULE);
 
 
     /* the http main_conf context, it is the same in the all http contexts */
-
+    //分配主配置内存
     ctx->main_conf = ngx_pcalloc(cf->pool,
                                  sizeof(void *) * ngx_http_max_module);
     if (ctx->main_conf == NULL) {
@@ -182,7 +190,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
      * create the main_conf's, the null srv_conf's, and the null loc_conf's
      * of the all http modules
      */
-
+    // 将所有的 NGX_HTTP_MODULE 类型的模块 初始化一个空的main配置,server 配置,location 配置 ,放到全局配置中
     for (m = 0; cf->cycle->modules[m]; m++) {
         if (cf->cycle->modules[m]->type != NGX_HTTP_MODULE) {
             continue;
@@ -216,6 +224,7 @@ ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     pcf = *cf;
     cf->ctx = ctx;
 
+    // 获取 http相关模块的模块的ctx,调用preconfiguration方法
     for (m = 0; cf->cycle->modules[m]; m++) {
         if (cf->cycle->modules[m]->type != NGX_HTTP_MODULE) {
             continue;

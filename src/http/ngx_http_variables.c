@@ -2566,6 +2566,7 @@ ngx_http_variables_add_core_vars(ngx_conf_t *cf)
     ngx_http_variable_t        *cv, *v;
     ngx_http_core_main_conf_t  *cmcf;
 
+    // 获取之前新申请的空间
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
     cmcf->variables_keys = ngx_pcalloc(cf->temp_pool,
@@ -2590,6 +2591,7 @@ ngx_http_variables_add_core_vars(ngx_conf_t *cf)
         return NGX_ERROR;
     }
 
+    // 添加变量 比如$http_host
     for (cv = ngx_http_core_variables; cv->name.len; cv++) {
         v = ngx_http_add_variable(cf, &cv->name, cv->flags);
         if (v == NULL) {
