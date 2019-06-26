@@ -83,7 +83,19 @@ struct ngx_queue_s {
 
 #endif
 
-
+/**
+ * 1 2 3 4 5 6 7 8
+ *
+ * h = 2
+ * q = 5
+ * n = NULL
+ *
+ * 1 n 5 6 7 8
+ *  2 3 4 2
+ *
+ *      h(prev)<-n->q
+ *      q(prev)<-h
+ */
 #define ngx_queue_split(h, q, n)                                              \
     (n)->prev = (h)->prev;                                                    \
     (n)->prev->next = n;                                                      \

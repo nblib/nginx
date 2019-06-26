@@ -178,9 +178,22 @@ typedef struct {
 } ngx_http_header_out_t;
 
 
+/**
+ * 对于常见的HTTP头部，直接获取headers_in中已经由HTTP框架解析过的成员即可，
+ * 而对于不常见的HTTP头部，需要遍历headers_in.headers链表才能获得
+ */
 typedef struct {
+    /**
+     * 所有解析过的HTTP头部都在headers链表中，可以使用遍历链表的方法来获取所有的
+     * HTTP头部。注意，这里headers链表的每一个元素都是
+     * ngx_table_elt_t成员
+     */
     ngx_list_t                        headers;
 
+    /**
+     * RFC2616规范中定义的HTTP头部，它们实际都指向headers链表中的相应成员。
+     * 注意，当它们为NULL空指针时，表示没有解析到相应的HTTP头部
+     */
     ngx_table_elt_t                  *host;
     ngx_table_elt_t                  *connection;
     ngx_table_elt_t                  *if_modified_since;
@@ -236,10 +249,17 @@ typedef struct {
     ngx_array_t                       cookies;
 
     ngx_str_t                         server;
+    /**
+     * 根据ngx_table_elt_t *content_length计算出的HTTP包体大小
+     */
     off_t                             content_length_n;
     time_t                            keep_alive_n;
 
     unsigned                          connection_type:2;
+    /**
+     * 以下标志位是HTTP框架根据浏览器传来的“useragent”头部，
+     * 它们可用来判断浏览器的类型，值为1时表示是相应的浏览器发来的请求，值为0时则相反
+     */
     unsigned                          chunked:1;
     unsigned                          msie:1;
     unsigned                          msie6:1;
@@ -251,13 +271,26 @@ typedef struct {
 } ngx_http_headers_in_t;
 
 
+/**
+ * 响应头
+ */
 typedef struct {
     ngx_list_t                        headers;
     ngx_list_t                        trailers;
 
+    /**
+     * 响应中的状态值
+     */
     ngx_uint_t                        status;
+    /**
+     * 响应的状态行
+     */
     ngx_str_t                         status_line;
 
+    /**
+     * 以下成员（包括ngx_table_elt_t）都是RFC1616规范中定义的HTTP头部，
+     * 设置后，ngx_http_header_filter_module过滤模块可以把它们加到待发送的网络包中
+     */
     ngx_table_elt_t                  *server;
     ngx_table_elt_t                  *date;
     ngx_table_elt_t                  *content_length;
@@ -368,6 +401,9 @@ typedef ngx_int_t (*ngx_http_handler_pt)(ngx_http_request_t *r);
 typedef void (*ngx_http_event_handler_pt)(ngx_http_request_t *r);
 
 
+/**
+ * http 请求体
+ */
 struct ngx_http_request_s {
     uint32_t                          signature;         /* "HTTP" */
 
@@ -401,14 +437,14 @@ struct ngx_http_request_s {
     time_t                            start_sec;
     ngx_msec_t                        start_msec;
 
-    ngx_uint_t                        method;
-    ngx_uint_t                        http_version;
+    ngx_uint_t                        method; // 是Nginx忽略大小写等情形时解析完用户请求后得到的方法类型.对应于上面的宏定义比如: NGX_HTTP_GET
+    ngx_uint_t                        http_version; //
 
     ngx_str_t                         request_line;
     ngx_str_t                         uri;
     ngx_str_t                         args;
     ngx_str_t                         exten;
-    ngx_str_t                         unparsed_uri;
+    ngx_str_t                         unparsed_uri; // 未解码的原始请求
 
     ngx_str_t                         method_name;
     ngx_str_t                         http_protocol;
