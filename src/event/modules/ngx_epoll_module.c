@@ -144,8 +144,13 @@ static ngx_connection_t     notify_conn;
 
 int                         ngx_eventfd = -1;
 aio_context_t               ngx_aio_ctx = 0;
-
+/**
+ * 异步I/O事件完成后进行通知的描述符，也就是ngx_eventfd所对应的ngx_event_t事件
+ */
 static ngx_event_t          ngx_eventfd_event;
+/**
+ * 异步I/O事件完成后进行通知的描述符ngx_eventfd所对应的ngx_connection_t连接
+ */
 static ngx_connection_t     ngx_eventfd_conn;
 
 #endif
@@ -351,6 +356,7 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 #endif
 
 #if (NGX_HAVE_FILE_AIO)
+        //如果开启了文件异步I/O功能
         ngx_epoll_aio_init(cycle, epcf);
 #endif
 
@@ -379,6 +385,7 @@ ngx_epoll_init(ngx_cycle_t *cycle, ngx_msec_t timer)
 
     ngx_io = ngx_os_io;
 
+    //对于事件驱动机制，每个事件模块需要实现的10个抽象方法
     ngx_event_actions = ngx_epoll_module_ctx.actions;
 
 #if (NGX_HAVE_CLEAR_EVENT)
@@ -865,15 +872,23 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
     // 遍历返回的事件
     for (i = 0; i < events; i++) {
+        //ptr成员就是
+        //ngx_connection_t连接的地址，但最后
+        //1位有特殊含义，需要把它屏蔽掉
         c = event_list[i].data.ptr;
 
+        //add_connection时,将连接地址和instance做了|操作,这里将最后一位取出来
         instance = (uintptr_t) c & 1;
+        //无论是32位还是64位机器，此时的connection地址的最后1位肯定是0，可以用下面这行语句把ngx_connection_t的地址还原到真正的地址值
         c = (ngx_connection_t *) ((uintptr_t) c & (uintptr_t) ~1);
 
         rev = c->read;
 
+        //判断这个读事件是否为过期事件
         if (c->fd == -1 || rev->instance != instance) {
-
+            /**
+             * fd套接字描述符为-1或者instance标志位不相等时，表示这个事件已经过期了，不用处理
+             */
             /*
              * the stale event from a file descriptor
              * that was just closed in this iteration
@@ -883,7 +898,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
                            "epoll: stale event %p", c);
             continue;
         }
-
+        //取出事件类型
         revents = event_list[i].events;
 
         ngx_log_debug3(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
@@ -911,7 +926,7 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
         }
 #endif
 
-        // 读取事件 EPOLLIN
+        // 如果是读取事件 EPOLLIN 并且是活跃的
         if ((revents & EPOLLIN) && rev->active) {
 
 #if (NGX_HAVE_EPOLLRDHUP)
@@ -924,8 +939,9 @@ ngx_epoll_process_events(ngx_cycle_t *cycle, ngx_msec_t timer, ngx_uint_t flags)
 
             rev->ready = 1;
 
-            //如果事件抢到锁，则放入事件队列
+            //如果事件抢到锁，那么flags包含NGX_POST_EVENTS,那么就将事件加入队列
             if (flags & NGX_POST_EVENTS) {
+                //延后处理,判断事件类型,加入到对应的队列中
                 queue = rev->accept ? &ngx_posted_accept_events
                                     : &ngx_posted_events;
 

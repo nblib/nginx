@@ -770,6 +770,9 @@ ngx_worker_process_cycle(ngx_cycle_t *cycle, void *data)
 
     ngx_setproctitle("worker process");
 
+    /**
+     * 死循环处理事件,为了避免死循环干跑,耗费cpu,在ngx_process_events_and_timers中控制
+     */
     for ( ;; ) {
 
         //判断是否是退出的状态，如果退出，则需要清空socket连接句柄

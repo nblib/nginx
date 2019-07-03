@@ -14,6 +14,10 @@ static ngx_int_t ngx_disable_accept_events(ngx_cycle_t *cycle, ngx_uint_t all);
 static void ngx_close_accepted_connection(ngx_connection_t *c);
 
 
+/**
+ * 处理新连接事件
+ * @param ev
+ */
 void
 ngx_event_accept(ngx_event_t *ev)
 {
@@ -62,6 +66,7 @@ ngx_event_accept(ngx_event_t *ev)
             s = accept(lc->fd, &sa.sockaddr, &socklen);
         }
 #else
+        //建立新的连接
         s = accept(lc->fd, &sa.sockaddr, &socklen);
 #endif
 
@@ -133,9 +138,11 @@ ngx_event_accept(ngx_event_t *ev)
         (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);
 #endif
 
+        //判断连接池的数量是否使用超过7/8
         ngx_accept_disabled = ngx_cycle->connection_n / 8
                               - ngx_cycle->free_connection_n;
 
+        //从池中获取一个连接
         c = ngx_get_connection(s, ev->log);
 
         if (c == NULL) {
@@ -153,6 +160,7 @@ ngx_event_accept(ngx_event_t *ev)
         (void) ngx_atomic_fetch_add(ngx_stat_active, 1);
 #endif
 
+        //为连接创建内存池
         c->pool = ngx_create_pool(ls->pool_size, ev->log);
         if (c->pool == NULL) {
             ngx_close_accepted_connection(c);
@@ -178,7 +186,7 @@ ngx_event_accept(ngx_event_t *ev)
         }
 
         /* set a blocking mode for iocp and non-blocking mode for others */
-
+        //设置套接字的属性，如设为非阻塞套接字
         if (ngx_inherited_nonblocking) {
             if (ngx_event_flags & NGX_USE_IOCP_EVENT) {
                 if (ngx_blocking(s) == -1) {
@@ -296,6 +304,10 @@ ngx_event_accept(ngx_event_t *ev)
 #endif
 
         if (ngx_add_conn && (ngx_event_flags & NGX_USE_EPOLL_EVENT) == 0) {
+            /**
+             * 将这个新连接对应的读事件添加到epoll等事件驱动模块中，
+             * 这样，在这个连接上如果接收到用户请求epoll_wait，就会收集到这个事件
+             */
             if (ngx_add_conn(c) == NGX_ERROR) {
                 ngx_close_accepted_connection(c);
                 return;
@@ -305,8 +317,14 @@ ngx_event_accept(ngx_event_t *ev)
         log->data = NULL;
         log->handler = NULL;
 
+        //调用监听对象ngx_listening_t中的handler回调方法
         ls->handler(c);
 
+        /**
+         * 如果监听事件的available标志位为1，再次循环到第1步，否则ngx_event_accept方法结束。
+         * 事件的available标志位对应着multi_accept配置项。当available为1时，告诉Nginx一次性尽量多地建立新连接，
+         * 它的实现原理也就在这里
+         */
         if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {
             ev->available--;
         }
@@ -318,21 +336,36 @@ ngx_event_accept(ngx_event_t *ev)
 ngx_int_t
 ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
 {
+    /**
+     * 使用进程间的同步锁，
+     * 试图获取accept_mutex锁。
+     * 注意，ngx_shmtx_trylock返回1表示成功拿到锁，返回0表示获取锁失败。
+     * 这个获取锁的过程是非阻塞的，此时一旦锁被其他worker子进程占用，ngx_shmtx_trylock方法会立刻返回
+     */
     if (ngx_shmtx_trylock(&ngx_accept_mutex)) {
 
         ngx_log_debug0(NGX_LOG_DEBUG_EVENT, cycle->log, 0,
                        "accept mutex locked");
 
+        /**
+         * 如果获取到accept_mutex锁，但ngx_accept_mutex_held为1，则立刻返回。
+         * ngx_accept_mutex_held是一个标志位，当它为1时，表示当前进程已经获取到锁了
+         */
         if (ngx_accept_mutex_held && ngx_accept_events == 0) {
             return NGX_OK;
         }
 
         // 启动accept事件,添加到队列中
         if (ngx_enable_accept_events(cycle) == NGX_ERROR) {
+            /**
+             * 既然将监听句柄添加到事件驱动模块失败，就必须释放ngx_accept_mutex锁
+             */
             ngx_shmtx_unlock(&ngx_accept_mutex);
             return NGX_ERROR;
         }
-
+        /**
+         * 经过ngx_enable_accept_events方法的调用，当前进程的事件驱动模块已经开始监听所有的端口，这时需要把ngx_accept_mutex_held标志位置为1，方便本进程的其他模块了解它目前已经获取到了锁
+         */
         ngx_accept_events = 0;
         ngx_accept_mutex_held = 1;
 
@@ -343,6 +376,11 @@ ngx_trylock_accept_mutex(ngx_cycle_t *cycle)
                    "accept mutex lock failed: %ui", ngx_accept_mutex_held);
 
     if (ngx_accept_mutex_held) {
+        /**
+         * 如果ngx_shmtx_trylock返回0，则表明获取ngx_accept_mutex锁失败，
+         * 这时如果ngx_accept_mutex_held标志位还为1，即当前进程还在获取到锁的状态，
+         * 这当然是不正确的，需要处理
+         */
         // 清除队列
         if (ngx_disable_accept_events(cycle, 0) == NGX_ERROR) {
             return NGX_ERROR;

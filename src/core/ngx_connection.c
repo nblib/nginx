@@ -403,6 +403,11 @@ ngx_set_inherited_sockets(ngx_cycle_t *cycle)
 }
 
 
+/**
+ * 监听绑定cycle中listening数组中指定的端口
+ * @param cycle
+ * @return
+ */
 ngx_int_t
 ngx_open_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -709,6 +714,10 @@ ngx_open_listening_sockets(ngx_cycle_t *cycle)
 }
 
 
+/**
+ * 根据配置文件配置已经监听的句柄
+ * @param cycle
+ */
 void
 ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 {
@@ -1017,6 +1026,10 @@ ngx_configure_listening_sockets(ngx_cycle_t *cycle)
 }
 
 
+/**
+ * 关闭已经打开的listening的句柄
+ * @param cycle
+ */
 void
 ngx_close_listening_sockets(ngx_cycle_t *cycle)
 {

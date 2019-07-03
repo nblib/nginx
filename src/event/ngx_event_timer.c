@@ -29,6 +29,10 @@ ngx_event_timer_init(ngx_log_t *log)
 }
 
 
+/**
+ * 获取最近一个将要触发的事件距离现在有多少毫秒
+ * @return
+ */
 ngx_msec_t
 ngx_event_find_timer(void)
 {

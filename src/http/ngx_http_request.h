@@ -409,6 +409,9 @@ struct ngx_http_request_s {
 
     ngx_connection_t                 *connection;
 
+    /**
+     * 存储所有HTTP模块的上下文结构体指针的数组,大小为http模块的数量
+     */
     void                            **ctx;
     void                            **main_conf;
     void                            **srv_conf;

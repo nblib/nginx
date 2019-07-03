@@ -15,6 +15,9 @@
 
 
 typedef struct {
+    /**
+     * 指针数组，数组中的每个元素指向所有HTTP模块create_main_conf方法产生的结构体,以下两个类似
+     */
     void        **main_conf;
     void        **srv_conf;
     void        **loc_conf;

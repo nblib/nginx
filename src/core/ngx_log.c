@@ -212,6 +212,14 @@ ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
 
 #if !(NGX_HAVE_VARIADIC_MACROS)
 
+/**
+ * 使用ngx_log_error宏记录日志时，如果传入的level级别小于或等于log参数中的日志级别（通常是由nginx.conf配置文件中指定），就会输出日志内容，否则这条日志会被忽略。
+ * @param level
+ * @param log
+ * @param err
+ * @param fmt
+ * @param ...
+ */
 void ngx_cdecl
 ngx_log_error(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
     const char *fmt, ...)

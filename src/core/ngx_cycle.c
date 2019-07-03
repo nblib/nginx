@@ -35,6 +35,11 @@ static ngx_connection_t  dumb;
 /* STUB */
 
 
+/**
+ * 该函数将会负责初始化ngx_cycle_t中的数据结构,解析配置文件,加载所有模块,打开监听端口,初始化进程间通信方式等工作
+ * @param old_cycle 表示临时的ngx_cycle_t指针,一般用来传递ngx_cycle_t结构体中的配置文件路径等参数
+ * @return 返回初始化成功的完整的ngx_cycle_t结构体,失败返回NULL指针
+ */
 ngx_cycle_t *
 ngx_init_cycle(ngx_cycle_t *old_cycle)
 {

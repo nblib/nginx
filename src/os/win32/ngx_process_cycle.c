@@ -60,6 +60,10 @@ char           ngx_cache_manager_mutex_name[NGX_PROCESS_SYNC_NAME];
 HANDLE         ngx_cache_manager_event;
 
 
+/**
+ * 进入master进程的工作循环
+ * @param cycle
+ */
 void
 ngx_master_process_cycle(ngx_cycle_t *cycle)
 {
@@ -364,6 +368,12 @@ ngx_create_signal_events(ngx_cycle_t *cycle)
 }
 
 
+/**
+ * 启动n个work子进程,并设置好每个子进程与master父进程之间使用socketpair系统调用建立起来的socket句柄通信机制
+ * @param cycle
+ * @param type
+ * @return
+ */
 static ngx_int_t
 ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t type)
 {
@@ -981,6 +991,10 @@ ngx_cache_loader_thread(void *data)
 }
 
 
+/**
+ * 单进程模式的工作循环(非master,worker模式)
+ * @param cycle
+ */
 void
 ngx_single_process_cycle(ngx_cycle_t *cycle)
 {

@@ -119,6 +119,9 @@ static ngx_str_t  event_core_name = ngx_string("event_core");
 
 static ngx_command_t  ngx_event_core_commands[] = {
 
+        /**
+         * 连接池的大小，也就是每个worker进程中支持的TCP最大连接数
+         */
     { ngx_string("worker_connections"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_connections,
@@ -126,6 +129,7 @@ static ngx_command_t  ngx_event_core_commands[] = {
       0,
       NULL },
 
+      //确定选择哪一个事件模块作为事件驱动机制
     { ngx_string("use"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_use,
@@ -133,6 +137,9 @@ static ngx_command_t  ngx_event_core_commands[] = {
       0,
       NULL },
 
+      /**
+       * epoll事件驱动模式来说，意味着在接收到一个新连接事件时，调用accept以尽可能多地接收连接
+       */
     { ngx_string("multi_accept"),
       NGX_EVENT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -140,6 +147,9 @@ static ngx_command_t  ngx_event_core_commands[] = {
       offsetof(ngx_event_conf_t, multi_accept),
       NULL },
 
+      /**
+       * 确定是否使用accept_mutex负载均衡锁，默认为开启
+       */
     { ngx_string("accept_mutex"),
       NGX_EVENT_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -147,6 +157,9 @@ static ngx_command_t  ngx_event_core_commands[] = {
       offsetof(ngx_event_conf_t, accept_mutex),
       NULL },
 
+      /**
+       * 启用accept_mutex负载均衡锁后，延迟accept_mutex_delay毫秒后再试图处理新连接事件
+       */
     { ngx_string("accept_mutex_delay"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_conf_set_msec_slot,
@@ -154,6 +167,9 @@ static ngx_command_t  ngx_event_core_commands[] = {
       offsetof(ngx_event_conf_t, accept_mutex_delay),
       NULL },
 
+      /**
+       * 需要对来自指定IP的TCP连接打印debug级别的调试日志
+       */
     { ngx_string("debug_connection"),
       NGX_EVENT_CONF|NGX_CONF_TAKE1,
       ngx_event_debug_connection,
@@ -191,7 +207,10 @@ ngx_module_t  ngx_event_core_module = {
 
 
 /**
- * 进程事件分发器
+ * 进程事件分发器.timer主要用来控制epoll_wait等待接收事件的超时时间:
+ *  为-1时,此时,用户设置了ngx_timer_resolution,或者没有待处理的事件,epoll_wait,无限长的等待,
+ *  为0时,存在已经过期的事件,epoll_wait不管有没有事件不等待,赶紧执行,方便下一步赶紧处理过期的事件.
+ *  为>0时,epoll_wait将等待指定时间.这个时间为最近要过期的事件的过期时间.
  * @param cycle
  */
 void
@@ -200,11 +219,18 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
     ngx_uint_t  flags;
     ngx_msec_t  timer, delta;
 
+    /**
+     * 如果配置文件中使用了timer_resolution配置项，也就是ngx_timer_resolution值大于0，
+     * 则说明用户希望服务器时间精确度为ngx_timer_resolution毫秒。这时，将ngx_process_events
+     * 的timer参数设为–1，告诉ngx_process_events方法在检测事件时要等待，
+     * 同时将flags参数初始化为0，它是在告诉ngx_process_events不需要更新时间
+     */
     if (ngx_timer_resolution) {
         timer = NGX_TIMER_INFINITE;
         flags = 0;
 
     } else {
+        //如果没有使用timer_resolution，那么将调用ngx_event_find_timer()方法
         timer = ngx_event_find_timer();
         flags = NGX_UPDATE_TIME;
 
@@ -237,6 +263,7 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
 
             // 拿到锁
             if (ngx_accept_mutex_held) {
+                // 修改标识,这样,处理事件时,将事件加入队列中,延迟处理
                 flags |= NGX_POST_EVENTS;
 
             } else {
@@ -256,6 +283,8 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         }
     }
 
+    //用来计时ngx_process_events的执行时间
+    // delta是ngx_process_events执行时消耗的毫秒数
     delta = ngx_current_msec;
 
     /**
@@ -283,6 +312,9 @@ ngx_process_events_and_timers(ngx_cycle_t *cycle)
         ngx_shmtx_unlock(&ngx_accept_mutex);
     }
 
+    // 如果ngx_process_events执行时消耗的时间delta大于0,
+    //而且这时可能有新的定时器
+    //事件被触发，那么需要调用ngx_event_expire_timers方法处理所有满足条件的定时器事件
     if (delta) {
         ngx_event_expire_timers();
     }
@@ -631,6 +663,10 @@ ngx_event_module_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
+/**
+ * 定时器到点后调用这个回调方法
+ * @param signo
+ */
 static void
 ngx_timer_signal_handler(int signo)
 {
@@ -688,7 +724,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
     ngx_queue_init(&ngx_posted_accept_events);
     ngx_queue_init(&ngx_posted_events);
 
-    // 初始化event模块的时间,使用rbtree(红黑树)
+    // 初始化红黑树实现的定时器
     if (ngx_event_timer_init(cycle->log) == NGX_ERROR) {
         return NGX_ERROR;
     }
@@ -716,6 +752,11 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #if !(NGX_WIN32)
 
+    /**
+     * 如果nginx.conf配置文件中设置了timer_resolution配置项，即表明需要控制时间精度，
+     * 这时会调用setitimer方法，
+     * 设置时间间隔为timer_resolution毫秒来回调ngx_timer_signal_handler方法
+     */
     if (ngx_timer_resolution && !(ngx_event_flags & NGX_USE_TIMER_EVENT)) {
         struct sigaction  sa;
         struct itimerval  itv;
@@ -770,6 +811,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
 #endif
 
+    /**
+     * 预分配ngx_connection_t数组作为连接池，同时将ngx_cycle_t结构体中的connections成员指向该数组。
+     * 数组的个数为nginx.conf配置文件中connections或worker_connections中配置的连接数。
+     */
     cycle->connections =
         ngx_alloc(sizeof(ngx_connection_t) * cycle->connection_n, cycle->log);
     if (cycle->connections == NULL) {
@@ -803,7 +848,10 @@ ngx_event_process_init(ngx_cycle_t *cycle)
 
     i = cycle->connection_n;
     next = NULL;
-
+    /**
+     * 按照序号，将上述3个数组相应的读/写事件设置到每一个ngx_connection_t连接对象中，
+     * 同时把这些连接以ngx_connection_t中的data成员作为next指针串联成链表，为下一步设置空闲连接链表做好准备
+     */
     do {
         i--;
 
@@ -815,6 +863,7 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         next = &c[i];
     } while (i);
 
+    // 空闲链表指向第一个元素
     cycle->free_connections = next;
     cycle->free_connection_n = cycle->connection_n;
 
@@ -907,7 +956,8 @@ ngx_event_process_init(ngx_cycle_t *cycle)
         }
 
 #else
-
+        //所有ngx_listening_t监听对象中的connection成员分配
+        //连接，同时对监听端口的读事件设置处理方法为ngx_event_accept
         rev->handler = (c->type == SOCK_STREAM) ? ngx_event_accept
                                                 : ngx_event_recvmsg;
 

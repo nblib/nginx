@@ -13,10 +13,14 @@
 #include <ngx_core.h>
 
 
+/**
+ * 缓存时间变量的类型
+ */
 typedef struct {
+    // 1970-01-01 00:00:00 到当前的秒数
     time_t      sec;
-    ngx_uint_t  msec;
-    ngx_int_t   gmtoff;
+    ngx_uint_t  msec; //相对于秒的毫秒偏移量
+    ngx_int_t   gmtoff; //  时区
 } ngx_time_t;
 
 

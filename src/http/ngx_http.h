@@ -71,8 +71,13 @@ typedef struct {
     u_char              *end;
 } ngx_http_status_t;
 
-
+/**
+ * 获取HTTP模块设置过上下文,如果没有设置过,返回NULL
+ */
 #define ngx_http_get_module_ctx(r, module)  (r)->ctx[module.ctx_index]
+/**
+ * 为模块设置上下文,nginx每个请求的每个模块都只设置一个上下文
+ */
 #define ngx_http_set_ctx(r, c, module)      r->ctx[module.ctx_index] = c;
 
 

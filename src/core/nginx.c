@@ -462,6 +462,11 @@ ngx_show_version_info(void)
 }
 
 
+/**
+ * 在执行不重启升级nginx的操作时,老的nginx进程会通过环境变量"NGINX"来传递需要打开的监听端口,新的nginx进程通过此方法来使用已经打开的tcp监听端口
+ * @param cycle 当前进程cycle结构体指针
+ * @return
+ */
 static ngx_int_t
 ngx_add_inherited_sockets(ngx_cycle_t *cycle)
 {

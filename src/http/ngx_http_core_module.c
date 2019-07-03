@@ -2872,6 +2872,9 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     ctx->main_conf = pctx->main_conf;
     ctx->srv_conf = pctx->srv_conf;
 
+    /**
+     * 生成1个数组存储所有的HTTP模块create_loc_conf方法返回的地址
+     */
     ctx->loc_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->loc_conf == NULL) {
         return NGX_CONF_ERROR;
@@ -2885,6 +2888,9 @@ ngx_http_core_location(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
         module = cf->cycle->modules[i]->ctx;
 
         if (module->create_loc_conf) {
+            /**
+             * 如果这个HTTP模块实现了create_loc_conf，就调用它，并把返回的地址存储到loc_conf中
+             */
             ctx->loc_conf[cf->cycle->modules[i]->ctx_index] =
                                                    module->create_loc_conf(cf);
             if (ctx->loc_conf[cf->cycle->modules[i]->ctx_index] == NULL) {

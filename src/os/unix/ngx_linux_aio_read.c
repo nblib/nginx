@@ -9,8 +9,13 @@
 #include <ngx_core.h>
 #include <ngx_event.h>
 
-
+/**
+ * 用于通知异步I/O事件的描述符，它与iocb结构体中的aio_resfd成员是一致的
+ */
 extern int            ngx_eventfd;
+/**
+ * 异步I/O的上下文，全局唯一，必须经过io_setup初始化才能使用
+ */
 extern aio_context_t  ngx_aio_ctx;
 
 
