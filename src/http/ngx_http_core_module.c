@@ -864,6 +864,13 @@ ngx_http_core_run_phases(ngx_http_request_t *r)
 }
 
 
+/**
+ * 当HTTP框架在建立的TCP连接上接收到客户发送的完整HTTP请求头部时，
+ * 开始执行NGX_HTTP_POST_READ_PHASE阶段的checker方法
+ * @param r
+ * @param ph
+ * @return
+ */
 ngx_int_t
 ngx_http_core_generic_phase(ngx_http_request_t *r, ngx_http_phase_handler_t *ph)
 {
@@ -877,30 +884,52 @@ ngx_http_core_generic_phase(ngx_http_request_t *r, ngx_http_phase_handler_t *ph)
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "generic phase: %ui", r->phase_handler);
 
+    /**
+     * 调用这一阶段中各HTTP模块添加的handler处理方法
+     */
     rc = ph->handler(r);
 
+    /**
+     * 如果handler方法返回NGX_OK，之后将进入下一个阶段处理，而不会理会当前阶段中是否还有其他的处理方法
+     */
     if (rc == NGX_OK) {
         r->phase_handler = ph->next;
         return NGX_AGAIN;
     }
 
+    /**
+     * 如果handler方法返回NGX_DECLINED，
+     * 那么将进入下一个处理方法，这个处理方法既可能属于当前阶段，也可能属于下一个阶段。
+     * 注意返回NGX_OK与NGX_DECLINED之间的区别
+     */
     if (rc == NGX_DECLINED) {
         r->phase_handler++;
         return NGX_AGAIN;
     }
 
+    /**
+     * 如果handler方法返回NGX_AGAIN或者NGX_DONE，那么当前请求将仍然停留在这一个处理阶段中
+     */
     if (rc == NGX_AGAIN || rc == NGX_DONE) {
         return NGX_OK;
     }
 
     /* rc == NGX_ERROR || rc == NGX_HTTP_...  */
-
+    /**
+     * 如果handler方法返回NGX_ERROR或者类似NGX_HTTP_开头的返回码，则调用ngx_http_finalize_ request结束请求
+     */
     ngx_http_finalize_request(r, rc);
 
     return NGX_OK;
 }
 
 
+/**
+ * NGX_HTTP_SERVER_REWRITE_PHASE NGX_HTTP_REWRITE_PHASE 阶段的checker方法
+ * @param r
+ * @param ph
+ * @return
+ */
 ngx_int_t
 ngx_http_core_rewrite_phase(ngx_http_request_t *r, ngx_http_phase_handler_t *ph)
 {
@@ -928,6 +957,14 @@ ngx_http_core_rewrite_phase(ngx_http_request_t *r, ngx_http_phase_handler_t *ph)
 }
 
 
+/**
+ * 任何HTTP模块不可以向这一阶段中添加处理方法（添加了也是无效的）!
+ * ngx_http_core_find_config_phase方法实际上就是根据NGX_HTTP_SERVER_REWRITE_PHASE步骤重写后的URI检索出匹配的location块的，
+ * 其原理为从location组成的静态二叉查找树中快速检索
+ * @param r
+ * @param ph
+ * @return
+ */
 ngx_int_t
 ngx_http_core_find_config_phase(ngx_http_request_t *r,
     ngx_http_phase_handler_t *ph)
@@ -1022,6 +1059,13 @@ ngx_http_core_find_config_phase(ngx_http_request_t *r,
 }
 
 
+/**
+ * NGX_HTTP_POST_REWRITE_PHASE阶段的checker方法
+ * 它的意义在于检查rewrite重写URL的次数不可以超过10次，以此防止由于rewrite死循环而造成整个Nginx服务都不可用。
+ * @param r
+ * @param ph
+ * @return
+ */
 ngx_int_t
 ngx_http_core_post_rewrite_phase(ngx_http_request_t *r,
     ngx_http_phase_handler_t *ph)
@@ -2706,6 +2750,13 @@ ngx_http_get_forwarded_addr_internal(ngx_http_request_t *r, ngx_addr_t *addr,
 }
 
 
+/**
+ * 解析http{}下的server{}块内容
+ * @param cf
+ * @param cmd
+ * @param dummy
+ * @return
+ */
 static char *
 ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 {
@@ -2728,22 +2779,26 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
     }
 
     http_ctx = cf->ctx;
+    //main_conf将指向所属的http块下ngx_http_conf_ctx_t结构体的main_conf指针数组
     ctx->main_conf = http_ctx->main_conf;
 
     /* the server{}'s srv_conf */
-
+    // 分配srv_conf内存
     ctx->srv_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->srv_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
     /* the server{}'s loc_conf */
-
+    // 分配location_conf内存
     ctx->loc_conf = ngx_pcalloc(cf->pool, sizeof(void *) * ngx_http_max_module);
     if (ctx->loc_conf == NULL) {
         return NGX_CONF_ERROR;
     }
 
+    /**
+     * 调用所有模块的create_srv_conf和create_loc_conf方法
+     */
     for (i = 0; cf->cycle->modules[i]; i++) {
         if (cf->cycle->modules[i]->type != NGX_HTTP_MODULE) {
             continue;
@@ -2779,6 +2834,7 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 
+    //添加到servers动态数组中
     cscfp = ngx_array_push(&cmcf->servers);
     if (cscfp == NULL) {
         return NGX_CONF_ERROR;
@@ -2797,6 +2853,11 @@ ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd, void *dummy)
 
     *cf = pcf;
 
+    /**
+     * 如果在server{}块内没有解析到listen配置项，则意味着当前的server虚拟主机并没有监听TCP端口，
+     * 这不符合HTTP框架的设计原则。于是将开始监听默认端口80，实际上，如果当前进程没有权限监听1024以下的端口，
+     * 则会改为监听8000端口。
+     */
     if (rv == NGX_CONF_OK && !cscf->listen) {
         ngx_memzero(&lsopt, sizeof(ngx_http_listen_opt_t));
 
@@ -3292,7 +3353,7 @@ ngx_http_core_create_srv_conf(ngx_conf_t *cf)
 
 
 static char *
-ngx_http_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
+ngx_http_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child )
 {
     ngx_http_core_srv_conf_t *prev = parent;
     ngx_http_core_srv_conf_t *conf = child;
