@@ -153,6 +153,11 @@ ngx_http_header_out_t  ngx_http_headers_out[] = {
 };
 
 
+/**
+ * 响应头过滤,计算响应长度等等,最后调用ngx_http_write_filter方法来发送响应头部
+ * @param r
+ * @return
+ */
 static ngx_int_t
 ngx_http_header_filter(ngx_http_request_t *r)
 {
@@ -169,24 +174,30 @@ ngx_http_header_filter(ngx_http_request_t *r)
     ngx_http_core_srv_conf_t  *cscf;
     u_char                     addr[NGX_SOCKADDR_STRLEN];
 
+    //如果header_sent为1，则
+    //表示这个请求的响应头部已经发送过了
     if (r->header_sent) {
         return NGX_OK;
     }
 
     r->header_sent = 1;
 
+    //检查当前请求是否是客户端发来的原始请求
     if (r != r->main) {
         return NGX_OK;
     }
 
+    //版本小于1.0
     if (r->http_version < NGX_HTTP_VERSION_10) {
         return NGX_OK;
     }
 
+    //HEAD请求
     if (r->method == NGX_HTTP_HEAD) {
         r->header_only = 1;
     }
 
+    // 检查响应体更新时间
     if (r->headers_out.last_modified_time != -1) {
         if (r->headers_out.status != NGX_HTTP_OK
             && r->headers_out.status != NGX_HTTP_PARTIAL_CONTENT
@@ -616,7 +627,7 @@ ngx_http_header_filter(ngx_http_request_t *r)
 
     out.buf = b;
     out.next = NULL;
-
+    //发送响应头部
     return ngx_http_write_filter(r, &out);
 }
 

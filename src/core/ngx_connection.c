@@ -1184,6 +1184,10 @@ ngx_free_connection(ngx_connection_t *c)
 }
 
 
+/**
+ * 关闭连接,移除事件.
+ * @param c
+ */
 void
 ngx_close_connection(ngx_connection_t *c)
 {
