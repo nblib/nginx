@@ -17,6 +17,11 @@ static ngx_int_t ngx_event_connect_set_transparent(ngx_peer_connection_t *pc,
 #endif
 
 
+/**
+ * 开始建立连接
+ * @param pc
+ * @return
+ */
 ngx_int_t
 ngx_event_connect_peer(ngx_peer_connection_t *pc)
 {
@@ -50,6 +55,7 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
     }
 
 
+    // 获取一个连接结构体
     c = ngx_get_connection(s, pc->log);
 
     if (c == NULL) {
@@ -63,6 +69,7 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
 
     c->type = type;
 
+    // 设置socket选项
     if (pc->rcvbuf) {
         if (setsockopt(s, SOL_SOCKET, SO_RCVBUF,
                        (const void *) &pc->rcvbuf, sizeof(int)) == -1)
@@ -193,6 +200,7 @@ ngx_event_connect_peer(ngx_peer_connection_t *pc)
 
     c->number = ngx_atomic_fetch_add(ngx_connection_counter, 1);
 
+    // 添加到event事件中
     if (ngx_add_conn) {
         if (ngx_add_conn(c) == NGX_ERROR) {
             goto failed;

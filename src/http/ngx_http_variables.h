@@ -34,12 +34,20 @@ typedef ngx_int_t (*ngx_http_get_variable_pt) (ngx_http_request_t *r,
 #define NGX_HTTP_VAR_PREFIX       32
 
 
+/**
+ * 变量结构体
+ */
 struct ngx_http_variable_s {
+    //对应的变量名字
     ngx_str_t                     name;   /* must be first to build the hash */
+    //set/get_handler表示对应的设置以及读取回调.set/get_handler只有在真正读取设置变量的时候才会被调用
     ngx_http_set_variable_pt      set_handler;
     ngx_http_get_variable_pt      get_handler;
+    //传递给回调的参数
     uintptr_t                     data;
+    //变量的属性
     ngx_uint_t                    flags;
+    //索引(数组的脚标)，从而可以迅速定位到对应的变量
     ngx_uint_t                    index;
 };
 

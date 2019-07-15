@@ -856,6 +856,8 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
     ngx_http_proxy_main_conf_t  *pmcf;
 #endif
 
+    //upstream流程: 创建一个upstreamngx_http_upstream_create方法只是创建ngx_http_upstream_t结构体而已，其中的成员还需
+    //要各个HTTP模块自行设置
     if (ngx_http_upstream_create(r) != NGX_OK) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
@@ -934,6 +936,7 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
         r->request_body_no_buffering = 1;
     }
 
+    //upstream流程: 启动upstream机制
     rc = ngx_http_read_client_request_body(r, ngx_http_upstream_init);
 
     if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {

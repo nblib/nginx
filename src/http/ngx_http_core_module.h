@@ -424,6 +424,7 @@ struct ngx_http_core_loc_conf_s {
     uint32_t      limit_except;
     void        **limit_except_loc_conf;
 
+    // 处理http content阶段的首选项,首先判断有这个方法就调用,不再调用阶段中的处理方法.
     ngx_http_handler_pt  handler;
 
     /* location name length for inclusive location with inherited alias */
